@@ -29,6 +29,7 @@ pub struct Edge {
     pub from: String,
     pub rel: String,
     pub to: String,
+    pub hlc: Hlc,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -42,7 +43,7 @@ pub struct Entity {
 pub struct PropPatch {
     pub uid: String,
     pub key: String,
-    pub register: PropRegister,
+    pub value: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]

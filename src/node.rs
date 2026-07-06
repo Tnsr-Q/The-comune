@@ -33,6 +33,7 @@ struct ChainState {
     last_seq: u64,
     last_hash: B3,
     by_seq: HashMap<u64, B3>, // equivocation detection
+    packet_by_seq: HashMap<u64, PckpPacket>,
 }
 
 #[derive(Clone, Debug)]
@@ -47,7 +48,7 @@ pub struct AgentZkNode {
     seen: HashSet<B3>,
     chains: HashMap<String, ChainState>,
     pending: HashMap<String, BTreeMap<u64, (PckpPacket, Option<Vec<u8>>)>>,
-    pub equivocation_evidence: Vec<(B3, B3)>, // (hash_a, hash_b) same (src, seq) — SLASH-EQUIV seed
+    pub equivocation_evidence: Vec<(PckpPacket, PckpPacket)>, // signed headers for same (src, seq) — SLASH-EQUIV seed
 }
 
 pub fn nid_for(src: &str) -> [u8; 8] {
@@ -117,7 +118,10 @@ impl AgentZkNode {
         if let Some(prev_hash) = chain.by_seq.get(&packet.body.seq) {
             if *prev_hash != ch {
                 // same (src, seq), different content: equivocation. Keep BOTH as evidence.
-                self.equivocation_evidence.push((*prev_hash, ch));
+                if let Some(prev_packet) = chain.packet_by_seq.get(&packet.body.seq) {
+                    self.equivocation_evidence
+                        .push((prev_packet.clone(), packet.clone()));
+                }
                 return Err(AgentZkError::Equivocation {
                     src,
                     seq: packet.body.seq,
@@ -168,13 +172,14 @@ impl AgentZkNode {
             tier: packet.body.tier,
             writer: nid_for(&packet.body.src),
         };
-        let report = self.merge.apply(&mut self.graph, &delta, &ctx);
+        let report = self.merge.apply(&mut self.graph, &delta, &ctx)?;
 
         // 9. Bookkeeping — only after full acceptance
         let chain = self.chains.get_mut(&packet.body.src).unwrap();
         chain.last_seq = packet.body.seq;
         chain.last_hash = ch;
         chain.by_seq.insert(packet.body.seq, ch);
+        chain.packet_by_seq.insert(packet.body.seq, packet.clone());
         self.seen.insert(ch);
         let profile = self.belief.profile_mut(&packet.body.src);
         profile.accepted_packets += 1;

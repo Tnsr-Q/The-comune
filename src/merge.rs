@@ -1,4 +1,5 @@
-use crate::graph::{GraphDelta, GraphState, PropRegister};
+use crate::error::{AgentZkError, Result};
+use crate::graph::{Edge, GraphDelta, GraphState, PropRegister};
 use crate::hash::B3;
 use crate::hlc::Hlc;
 use serde::{Deserialize, Serialize};
@@ -48,7 +49,7 @@ fn law_for(uid: &str) -> RegisterLaw {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct MergeReport {
     pub props_applied: usize,
-    pub props_shadowed: usize, // losers — incl. immutability-violation attempts
+    pub props_shadowed: usize, // LWW losers
     pub edges_added: usize,
 }
 
@@ -64,12 +65,29 @@ impl MergeEngine {
         Self { policy }
     }
 
-    pub fn apply(&self, state: &mut GraphState, delta: &GraphDelta, ctx: &MergeCtx) -> MergeReport {
+    pub fn apply(
+        &self,
+        state: &mut GraphState,
+        delta: &GraphDelta,
+        ctx: &MergeCtx,
+    ) -> Result<MergeReport> {
         let mut report = MergeReport::default();
 
         for patch in &delta.props {
+            if law_for(&patch.uid) == RegisterLaw::FirstWriteWins
+                && state
+                    .entities
+                    .get(&patch.uid)
+                    .and_then(|entity| entity.props.get(&patch.key))
+                    .is_some()
+            {
+                return Err(AgentZkError::ImmutableWrite {
+                    uid: patch.uid.clone(),
+                    key: patch.key.clone(),
+                });
+            }
             let incoming = PropRegister {
-                value: patch.register.value.clone(),
+                value: patch.value.clone(),
                 hlc: ctx.hlc,
                 tier: ctx.tier,
                 writer: hex::encode(ctx.writer),
@@ -106,12 +124,18 @@ impl MergeEngine {
 
         for edge in &delta.edges {
             // add-wins set; MUST be a BTreeSet (root determinism — see P1-C)
-            if state.entity_mut(&edge.from).edges.insert(edge.clone()) {
+            let applied_edge = Edge {
+                from: edge.from.clone(),
+                rel: edge.rel.clone(),
+                to: edge.to.clone(),
+                hlc: ctx.hlc,
+            };
+            if state.entity_mut(&edge.from).edges.insert(applied_edge) {
                 report.edges_added += 1;
             }
         }
 
-        report
+        Ok(report)
     }
 }
 
