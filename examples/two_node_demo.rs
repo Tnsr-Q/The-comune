@@ -9,7 +9,8 @@ fn main() {
     let signer = SigningKey::generate(&mut OsRng);
     let verify = signer.verifying_key();
 
-    let hlc = Hlc::new(1_720_000_000_000, 0, *b"nodeA000");
+    let src = "did:sol:agent-researcher";
+    let hlc = Hlc::new(1_720_000_000_000, 0, nid_for(src));
 
     let delta = GraphDelta {
         props: vec![PropPatch {
@@ -32,7 +33,7 @@ fn main() {
     let body = SignablePacket {
         v: 2,
         id: "pkt-demo-001".to_string(),
-        src: "did:sol:agent-researcher".to_string(),
+        src: src.to_string(),
         key: "skey:01".to_string(),
         swarm: "agentzk-alpha".to_string(),
         sess: Some("team:demo".to_string()),

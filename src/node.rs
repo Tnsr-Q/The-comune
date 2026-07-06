@@ -22,6 +22,12 @@ pub trait KeyResolver {
     fn resolve(&self, src: &str, key_ref: &str) -> Result<VerifyingKey>;
 }
 
+impl KeyResolver for VerifyingKey {
+    fn resolve(&self, _src: &str, _key_ref: &str) -> Result<VerifyingKey> {
+        Ok(*self)
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 struct ChainState {
     last_seq: u64,
@@ -84,7 +90,7 @@ impl AgentZkNode {
         }
 
         // 3. nid ↔ src binding (F3)
-        if packet.body.hlc.nid != nid_for(&packet.body.src) {
+        if packet.body.hlc.node_id != nid_for(&packet.body.src) {
             return Err(AgentZkError::NidMismatch);
         }
 
@@ -112,7 +118,10 @@ impl AgentZkNode {
             if *prev_hash != ch {
                 // same (src, seq), different content: equivocation. Keep BOTH as evidence.
                 self.equivocation_evidence.push((*prev_hash, ch));
-                return Err(AgentZkError::Equivocation { src, seq: packet.body.seq });
+                return Err(AgentZkError::Equivocation {
+                    src,
+                    seq: packet.body.seq,
+                });
             }
             return Ok(Ack::Duplicate);
         }
@@ -127,10 +136,15 @@ impl AgentZkNode {
             slot.insert(packet.body.seq, (packet, detached_delta));
             return Ok(Ack::Parked);
         }
-        if packet.body.seq == expected && packet.body.prev != Some(chain.last_hash).filter(|_| chain.last_seq > 0) {
+        if packet.body.seq == expected
+            && packet.body.prev != Some(chain.last_hash).filter(|_| chain.last_seq > 0)
+        {
             // seq 1 must have prev = None; seq n must chain to hash(n-1)
             if !(packet.body.seq == 1 && packet.body.prev.is_none()) {
-                return Err(AgentZkError::ChainBreak { src, seq: packet.body.seq });
+                return Err(AgentZkError::ChainBreak {
+                    src,
+                    seq: packet.body.seq,
+                });
             }
         }
 
@@ -177,7 +191,8 @@ impl AgentZkNode {
     fn drain_pending<R: KeyResolver>(&mut self, src: &str, resolver: &R) {
         loop {
             let next_seq = self.chains.get(src).map(|c| c.last_seq + 1).unwrap_or(1);
-            let Some((pkt, delta)) = self.pending.get_mut(src).and_then(|m| m.remove(&next_seq)) else {
+            let Some((pkt, delta)) = self.pending.get_mut(src).and_then(|m| m.remove(&next_seq))
+            else {
                 return;
             };
             if self.ingest(pkt, resolver, delta).is_err() {
