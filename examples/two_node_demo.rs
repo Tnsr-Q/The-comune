@@ -16,17 +16,13 @@ fn main() {
         props: vec![PropPatch {
             uid: "fact:vendor-risk-001".to_string(),
             key: "statement".to_string(),
-            register: PropRegister::new(
-                "Vendor X has a Q3 invoice spike.",
-                hlc,
-                1,
-                "agent:researcher",
-            ),
+            value: "Vendor X has a Q3 invoice spike.".to_string(),
         }],
         edges: vec![Edge {
             from: "fact:vendor-risk-001".to_string(),
             rel: "OBSERVED_BY".to_string(),
             to: "agent:researcher".to_string(),
+            hlc,
         }],
     };
 

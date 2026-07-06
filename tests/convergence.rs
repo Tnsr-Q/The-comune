@@ -2,12 +2,12 @@ use agentzk_speedline::*;
 use ed25519_dalek::SigningKey;
 use rand_core::OsRng;
 
-fn delta_set(uid: &str, key: &str, value: &str, hlc: Hlc, writer: &str) -> GraphDelta {
+fn delta_set(uid: &str, key: &str, value: &str, _hlc: Hlc, _writer: &str) -> GraphDelta {
     GraphDelta {
         props: vec![PropPatch {
             uid: uid.to_string(),
             key: key.to_string(),
-            register: PropRegister::new(value, hlc, 1, writer),
+            value: value.to_string(),
         }],
         edges: vec![],
     }

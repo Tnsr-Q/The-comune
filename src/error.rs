@@ -24,4 +24,6 @@ pub enum AgentZkError {
     PendingOverflow,
     #[error("packet chain break for {src} at seq {seq}")]
     ChainBreak { src: String, seq: u64 },
+    #[error("immutable property write rejected for {uid}.{key}")]
+    ImmutableWrite { uid: String, key: String },
 }
