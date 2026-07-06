@@ -14,6 +14,6 @@ pub use graph::{Edge, GraphDelta, GraphState, PropPatch, PropRegister};
 pub use hash::{b3, B3};
 pub use hlc::Hlc;
 pub use merge::{MergeEngine, MergePolicy};
-pub use node::AgentZkNode;
+pub use node::{nid_for, AgentZkNode, KeyResolver};
 pub use packet::{DeltaRef, PckpPacket, SignablePacket};
 pub use proof::{EpochRange, FakeProofBackend, ProofReceipt, ProofStatus};

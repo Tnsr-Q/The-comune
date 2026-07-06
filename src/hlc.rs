@@ -12,7 +12,11 @@ pub struct Hlc {
 
 impl Hlc {
     pub fn new(physical_ms: u64, logical: u32, node_id: [u8; 8]) -> Self {
-        Self { physical_ms, logical, node_id }
+        Self {
+            physical_ms,
+            logical,
+            node_id,
+        }
     }
 
     pub fn tick(&self, now_ms: u64) -> Self {

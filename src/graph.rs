@@ -14,7 +14,13 @@ pub struct PropRegister {
 
 impl PropRegister {
     pub fn new(value: impl Into<String>, hlc: Hlc, tier: u8, writer: impl Into<String>) -> Self {
-        Self { value: value.into(), hlc, tier, writer: writer.into(), weight: 1 }
+        Self {
+            value: value.into(),
+            hlc,
+            tier,
+            writer: writer.into(),
+            weight: 1,
+        }
     }
 }
 
@@ -52,10 +58,12 @@ pub struct GraphState {
 
 impl GraphState {
     pub fn entity_mut(&mut self, uid: &str) -> &mut Entity {
-        self.entities.entry(uid.to_string()).or_insert_with(|| Entity {
-            uid: uid.to_string(),
-            ..Entity::default()
-        })
+        self.entities
+            .entry(uid.to_string())
+            .or_insert_with(|| Entity {
+                uid: uid.to_string(),
+                ..Entity::default()
+            })
     }
 
     pub fn root(&self) -> B3 {

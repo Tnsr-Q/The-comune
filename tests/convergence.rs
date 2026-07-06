@@ -13,7 +13,15 @@ fn delta_set(uid: &str, key: &str, value: &str, hlc: Hlc, writer: &str) -> Graph
     }
 }
 
-fn packet(delta: GraphDelta, seq: u64, hlc: Hlc, schema: B3, signer: &SigningKey, src: &str) -> PckpPacket {
+fn packet(
+    delta: GraphDelta,
+    seq: u64,
+    prev: Option<B3>,
+    hlc: Hlc,
+    schema: B3,
+    signer: &SigningKey,
+    src: &str,
+) -> PckpPacket {
     let bytes = postcard::to_allocvec(&delta).unwrap();
     let body = SignablePacket {
         v: 2,
@@ -23,7 +31,7 @@ fn packet(delta: GraphDelta, seq: u64, hlc: Hlc, schema: B3, signer: &SigningKey
         swarm: "alpha".to_string(),
         sess: Some("team:test".to_string()),
         seq,
-        prev: None,
+        prev,
         hlc,
         schema,
         delta: DeltaRef::from_bytes(bytes),
@@ -41,21 +49,35 @@ fn lww_converges_under_different_packet_orders() {
     let verify = signer.verifying_key();
 
     let p1 = packet(
-        delta_set("entity:1", "name", "old", Hlc::new(1000, 0, *b"nodeA000"), "agent:a"),
+        delta_set(
+            "entity:1",
+            "name",
+            "old",
+            Hlc::new(1000, 0, nid_for("agent:a")),
+            "agent:a",
+        ),
         1,
-        Hlc::new(1000, 0, *b"nodeA000"),
+        None,
+        Hlc::new(1000, 0, nid_for("agent:a")),
         schema,
         &signer,
         "agent:a",
     );
 
     let p2 = packet(
-        delta_set("entity:1", "name", "new", Hlc::new(1001, 0, *b"nodeB000"), "agent:b"),
+        delta_set(
+            "entity:1",
+            "name",
+            "new",
+            Hlc::new(1001, 0, nid_for("agent:a")),
+            "agent:b",
+        ),
         2,
-        Hlc::new(1001, 0, *b"nodeB000"),
+        Some(p1.content_hash()),
+        Hlc::new(1001, 0, nid_for("agent:a")),
         schema,
         &signer,
-        "agent:b",
+        "agent:a",
     );
 
     let mut n1 = AgentZkNode::new("n1", schema, policy);
@@ -79,9 +101,16 @@ fn low_trust_does_not_block_replication() {
     let verify = signer.verifying_key();
 
     let p = packet(
-        delta_set("fact:low-trust", "statement", "Still replicated.", Hlc::new(1, 0, *b"nodeC000"), "agent:low"),
+        delta_set(
+            "fact:low-trust",
+            "statement",
+            "Still replicated.",
+            Hlc::new(1, 0, nid_for("agent:low")),
+            "agent:low",
+        ),
         1,
-        Hlc::new(1, 0, *b"nodeC000"),
+        None,
+        Hlc::new(1, 0, nid_for("agent:low")),
         schema,
         &signer,
         "agent:low",

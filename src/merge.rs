@@ -12,7 +12,10 @@ pub struct MergePolicy {
 
 impl MergePolicy {
     pub fn new(schema_hash: B3, policy_hash: B3) -> Self {
-        Self { schema_hash, policy_hash }
+        Self {
+            schema_hash,
+            policy_hash,
+        }
     }
 }
 
@@ -66,17 +69,18 @@ impl MergeEngine {
 
         for patch in &delta.props {
             let incoming = PropRegister {
-                value: patch.value.clone(),
+                value: patch.register.value.clone(),
                 hlc: ctx.hlc,
                 tier: ctx.tier,
-                writer: ctx.writer,
+                writer: hex::encode(ctx.writer),
+                weight: 1,
             };
             let entity = state.entity_mut(&patch.uid);
             let wins = match entity.props.get(&patch.key) {
                 None => true,
                 Some(existing) => {
-                    let inc = (incoming.hlc, incoming.tier, incoming.writer);
-                    let cur = (existing.hlc, existing.tier, existing.writer);
+                    let inc = (incoming.hlc, incoming.tier, incoming.writer.as_str());
+                    let cur = (existing.hlc, existing.tier, existing.writer.as_str());
                     match law_for(&patch.uid) {
                         RegisterLaw::LastWriteWins => match inc.cmp(&cur) {
                             Ordering::Greater => true,
